@@ -24,6 +24,8 @@
 \usepackage{algorithm}
 \usepackage{algcompatible}
 \usepackage[noend]{algpseudocode}
+\newcommand{\RomanNumeralCaps}[1]
+    {\MakeUppercase{\romannumeral #1}}
 %%%%%%%%%%%%%%%
 
 %%%%%%%%%Add by Celong Liu%%%%%%%%%%%%%%%%%%%%%%
@@ -84,7 +86,7 @@
 
 
 %%%%%%%%% TITLE
-\title{Talking-head Generation with Rhythmic Head Motion}
+\title{Talking-head Generation with Rhythmic Head Motion \CXu{A better name?}}
 
 % INITIAL SUBMISSION 
 %\begin{comment}
@@ -121,9 +123,9 @@ ABC Institute, Rupert-Karls-University Heidelberg, Heidelberg, Germany\\
 
 %%%%%%%%% ABSTRACT
 \begin{abstract}
-Given a speech sequence, generating a talking-head video synchronized with the given audio condition while moving the head naturally is challenging. When people delivery a speech, we naturally move heads, and this rhythmic head motion conveys linguistic information. 
+Given a speech sequence, generating a talking-head video synchronized with the given audio condition while moving the head naturally is challenging. When people deliver a speech, we naturally move heads, and this rhythmic head motion conveys linguistic information. 
 While remarkably successful, existing works either generate still talking-face videos or rely on landmark/video frames as sparse/dense mapping guidance to generate head movements, which leads to unrealistic and uncontrollable video synthesizing. 
-To overcome the limitation, we propose a 3D aware generative network along with a texture-preserving embedding module and a none-linear composition module to model the head motion and facial expression explicitly. Compared to a direct condition-to-image approach, our approach avoids overfitting to the subjects in the training data, which leads to a much better generalization capability. Meanwhile, our system is compatible with the adversarial fine-tuning to further improve the video quality. Thoughtful experiments on two standard benchmarks demonstrate that our method achieves significantly better results than the state-of-the-art methods in both quantitative and qualitative comparisons.
+To overcome the limitation, we propose a 3D aware generative network along with a texture-preserving embedding module and a non-linear composition module to model the head motion and facial expression explicitly. Compared to a direct condition-to-image approach, our approach avoids overfitting to the subjects in the training data, which leads to a much better generalization capability. Meanwhile, our system is compatible with the adversarial fine-tuning to further improve the video quality. Thoughtful experiments on two standard benchmarks demonstrate that our method achieves significantly better results than the state-of-the-art methods in both quantitative and qualitative comparisons.
 % Given a conditioned modality (e.g., speech audio signal, video frames), generating a talking-head video synchronized with the given condition while moving the head naturally is challenging. When people delivery a speech, we naturally move heads, and this rhythmic head motion conveys linguistic information. 
 % While remarkably successful, existing works either generate still talking-face videos or rely on landmark/video frames as sparse/dense mapping guidance to generate head movements, which leads to unrealistic and uncontrollable video synthesizing. 
 % To overcome the limitation, we propose a 3D aware module to model the head motion and facial expression explicitly and a matching scheme along with a texture preserving GRU module to model the temporal dependencies. Compared to a direct condition-to-image approach, our approach avoids overfitting to the subjects in the training data, which leads to a much better generalization capability. Meanwhile, our system is compatible with the adversarial fine-tuning to further improve the video quality. Thoughtful experiments on two standard benchmarks demonstrate that our method achieves significantly better results than the state-of-the-art methods in both quantitative and qualitative comparisons.  
@@ -147,16 +149,16 @@ To overcome the limitation, we propose a 3D aware generative network along with 
 %}
 
 %\CXu{Introduction is not good. There lacks a clear flow/story. Shall we separate the concepts of ``talking-face'' and ``talking-head''? Talking-face: head is still, or not considered explicitly. Talking-head: aim to manipulate head movement; it can come from a driving modality, e.g., another talking head, 3D pose, or be generated based on short-term talking characteristics. Therefore, you can group literature into one of the two sets and make the comparison. Of course, you will need to say why we need to generate head motion: 1) it helps to comprehend speech; 2) the value in terms of computer vision, e.g., the model needs to have a 3D-aware capability?}
+
 %BACKGROUND and Motivation
 People spontaneously emit head movements when we speak, which complement speech and add non-verbal information that helps the audience comprehend what we say~\cite{cassell1999speech,ginosar2019gestures}. Modeling the dynamics of a talking-head video and then generating controllable talking-head video conditioned on a driven-speech is a valuable problem in computer vision. For example, by modeling the head motion and facial expressions, we can generate controllable talking-head videos, which can benefit the research of adversarial attacks in security or provide more training samples for supervised learning approaches. Solving this problem is also crucial to real-world applications, e.g., generating vivid talking-head videos that convey the conditioned speech can enhance speech comprehension while preserving privacy, or build assistive devices for hearing impaired people. 
 
 \begin{figure}[t]
-\includegraphics[width= \linewidth]{latex/images/teaser.pdf}
-\caption{The illustration of our approach. Given a short video, we can explicitly model the head motion and facial expression in a disentangled manner.}
+\includegraphics[width= \linewidth]{latex/images/teaser.png}
+\caption{The illustration of Deepfake methods~\cite{suwajanakorn2017synthesizing,fried2019text} and our method. The green arrow denotes input. The deepfake methods require whole original video frames as input and only edit a small region (e.g., lip region) on top of the original video frames. Our method learns the appearance embedding from $K$ reference frames and learns future head movements from a 3 secs head motion vector, and can generate whole future video frames (including background) with new and controllable head movements and facial expressions.}
 % \vspace{-6.5mm}
 \label{fig:teaser}
 \end{figure}
-
 
 %PROBLEMS and some related works
 We humans can infer the visual prosody from a short conversation with the speaker~\cite{munhall2004visual}. Drawing inspiration from the human perception, in this paper, we consider such a task: given a short video (e.g., 3 seconds) of the target subject and an arbitrary reference speech audio recording or reference video from a different subject, learning the individual head motion from the 3-second video and generating a photo-realistic talking-head video of the target subject that conveys the conditioned audio. The synthesized subject should have natural lip synchronization and smooth transition while moving the head with natural and rhythmic head motion. Similar problems (e.g.,~\cite{chung2017you,zhou2019talking,ijcai2019-129,vougioukas2019realistic,chen2019hierarchical,wiles2018x2face,zakharov2019few,wang2018fewshotvid2vid}) have been explored recently. However, several challenges on how to explicitly use the given video and model the large head motion remain unsolved. And we discuss our technical contributions concerning each challenge.
@@ -164,39 +166,35 @@ We humans can infer the visual prosody from a short conversation with the speake
 %CHALLENGES
 
 %challenge 1: convoluted features.
-The deformation of talking-head consists of his/her intrinsic subject traits, head movements and facial expressions, which are highly convoluted. This complexity stems not only from modeling face regions, but also from modeling head motion and background. while the synthesized talking-face conveys the input audio signal, previous talking-face methods~\cite{Chung18b,wiles2018x2face,zhou2019talking,chen2018lip,ijcai2019-129,chen2019hierarchical} omit the head motion modeling thus can only generate still talking-face with expressions under a fixed facial alignment. Other talking-head generation methods~\cite{zakharov2019few,wang2018fewshotvid2vid,wang2018vid2vid,wang2018high,wiles2018x2face} are able to synthesize moving-head videos by replying on input facial landmarks or RGB video frames as the guidance to infer the convoluted head motion and facial expressions. However, they do not model head motion and facial expression (see Fig.~\ref{fig:teaser}) explicitly (e.g., control facial expression with speech audio signal), thus fail to output a controllable talking-head video, which we argue greatly limits their use. For example, we can not use audio speech to drive those talking-head generation methods since the head motion is missing. To address the convoluted deformation problem, we propose a simple but effective method to decompose the identity appearance, head motion, and facial expression and generate controllable talking-head videos conditioned upon audio signal.     
+The deformation of talking-head consists of his/her intrinsic subject traits, head movements and facial expressions, which are highly convoluted. This complexity stems not only from modeling face regions, but also from modeling head motion and background. while the synthesized talking-face conveys the input audio signal, previous audio-driven generation methods~\cite{Chung18b,wiles2018x2face,zhou2019talking,chen2018lip,ijcai2019-129,chen2019hierarchical} omit the head motion modeling thus can only generate still talking-face with expressions under a fixed facial alignment. Other landmark/image-driven generation methods~\cite{zakharov2019few,wang2018fewshotvid2vid,wang2018vid2vid,wang2018high,wiles2018x2face} are able to synthesize moving-head videos by replying on input facial landmarks or RGB video frames as the guidance to infer the convoluted head motion and facial expressions, but fail to output a controllable talking-head video (e.g., control facial expression with speech audio signal), which we argue greatly limits their use. To address the convoluted deformation problem, we propose a simple but effective method to decompose the identity appearance, head motion, and facial expression and generate controllable talking-head videos conditioned upon audio signal.     
 
 %challenge 2: 3 seconds video.
-Another challenge is exploiting the information contained in reference images/video. While the few-shot generation methods~\cite{zakharov2019few,wang2018fewshotvid2vid,liu2019few} learn to synthesize high-quality videos of unseen subjects by leveraging $K$ reference images, they only utilize the global appearance information. There is much valuable information other than appearance. For example, we can infer the individual characteristics in head movement by leveraging the given short video. Thus, we propose a novel method to extrapolate rhythmic head motion based on the input short video while preserving a few characteristics of the individual head motion. This extrapolated head motion can be used in speech-driven talking head generation task as the head motion guidance. Furthermore, we propose a matching scheme to utilize the given video to smooth the facial movement transition and stabilize the backgrounds.
+Another challenge is exploiting the information contained in reference images/video. While the few-shot generation methods~\cite{zakharov2019few,wang2018fewshotvid2vid,liu2019few,yoo2019coloring} learn to synthesize high-quality videos of unseen subjects by leveraging $K$ reference images, they only utilize the global appearance information. There is much valuable information other than appearance. For example, we can infer the individual characteristics in head movement by leveraging the given short video. Thus, we propose a novel method to extrapolate rhythmic head motion based on the input short video while preserving a few characteristics of the individual head motion. This extrapolated head motion can be used in speech-driven talking head generation task as the head motion guidance. Furthermore, We propose a novel hybrid-attention network to dynamically aggregate features from reference images Furthermore, and a matching scheme to utilize the given video to smooth the facial movement transition and stabilize the backgrounds.
 
 %challenge 3: 3D 
-People are sensitive to any temporal discontinuities (e.g., subtle artifacts and perceptual identity changes) in a synthesized video, which is hard to avoid in GAN-based methods. 3D graphics modeling has been introduced by~\cite{Fried19,kim2018deep} in GAN-based methods due to its stability. In this paper, we employ the 3D modeling along with a novel none-linear composition module to model the temporal dependencies at the generation stage to alleviate the temporal discontinuities caused by large head motion, facial expressions or the overfitting problem.
+People are sensitive to any subtle artifacts and perceptual identity changes in a synthesized video, which is hard to avoid in GAN-based methods. 3D graphics modeling has been introduced by~\cite{fried2019text,kim2018deep} in GAN-based methods due to its stability. In this paper, we employ the 3D modeling along with a novel none-linear composition module to alleviate the visual discontinuities caused by large head motion, facial expressions or the overfitting problem. 
 
 %summary
 Combining above features, which are designed to overcome limitations of existing methods, our framework can generate talking-head video with natural head motion that conveys the given input condition. We conduct extensive experimental validation with comparisons to various state-of-the-art methods on several benchmark datasets (e.g., VoxCeleb2~\cite{Chung18b}, LRW~\cite{Chung16}, and VoxCeleb1~\cite{Nagrani17} datasets ) under several different settings (e.g., audio to video, landmark to video, and few-shot learning). Experimental results show that the proposed framework effectively addresses the limitations of existing talking-head generation methods.
 
 \section{Related Work}
 \label{sec:related}
-In this section, we first briefly survey related work on the talking-face/head generation task. Then we discuss the related work of each technique used in our model. %\CXu{I don't like the way you organize the related work. I think a better way and a logic way is to focus on the related work on talking face/head generation. You should organize the related literature into categories, e.g., graphics-based or data driven based etc. Mention each important related paper, and their limitations.}
+In this section, we first briefly survey related work on the talking-face/head generation task. Then we discuss the related work of each technique used in our model.
 
-%\CXu{I don't know the purpose of this paragraph.} \noindent \textbf{Generative models} \quad Our proposed approach is based on conditional Generative adversarial network~\cite{mirza2014conditional, goodfellow2014generative,mao2017least}. The talking-head video synthesis requires human interpretable controls (e.g. sketches~\cite{chen2019hierarchical,zakharov2019few}, audio~\cite{zhou2019talking, ijcai2019-129} and RGB image~\cite{wiles2018x2face}), thus, rather than from noise distribution~\cite{goodfellow2014generative,walker2016uncertain,karras2019style, sangkloy2017scribbler,zhu2019dm,huang2019generative}, we synthesize the target videos directly based on user input data, which offers more control over the generated results. \noindent \textbf{Talking-face/head Synthesizing} \quad
 \subsection{Talking-face/head Image Generation}
 \label{subsec:talking-syn}
-The success of graphics-based approaches has been mainly limited to synthesizing talking-head videos for a specific person~\cite{garrido2015vdub,bregler1997video,chang2005transferable,liu2011realistic,suwajanakorn2017synthesizing}. For instance, Suwajanakorn et al.~\cite{suwajanakorn2017synthesizing} produce photo-realistic videos by a speech-driven approach. While it can synthesize fairly accurate lip-synced videos, it requires the target audio speech similar to the original speaker and a large amount of video footage of the target person. Moreover, this method can not be generalized to an unseen person due to the rigid matching scheme. More recently, video-to-video translation has been shown to be able to generate arbitrary faces from arbitrary input data. While the synthesized video conveys the input speech signal, the talking-face generation methods~\cite{chung2017you,zhou2019talking,ijcai2019-129,Vougioukas2019,chen2019hierarchical} can only generate facial expressions without any head movements under a fixed alignment since the head motion modeling has been omitted. Talking-head methods~\cite{zakharov2019few,chen2019hierarchical,wiles2018x2face} are able to generate high-quality videos with convoluted facial expression and head motion. However, due to the lack of explicit head motion modeling, these methods can not generate controllable video, e.g., using audio to drive the generation. 
+The success of graphics-based approaches has been mainly limited to synthesizing talking-head videos for a specific person~\cite{garrido2015vdub,bregler1997video,chang2005transferable,liu2011realistic,suwajanakorn2017synthesizing}. For instance, Suwajanakorn et al.~\cite{suwajanakorn2017synthesizing} produce photo-realistic videos by composite the generated lip region with existing image frame. While it can synthesize fairly accurate lip-synced videos, it requires a large amount of video footage of the target person to compose the final video. Moreover, this method can not be generalized to an unseen person due to the rigid matching scheme. More recently, video-to-video translation has been shown to be able to generate arbitrary faces from arbitrary input data. While the synthesized video conveys the input speech signal, the talking-face generation methods~\cite{chung2017you,zhou2019talking,ijcai2019-129,Vougioukas2019,chen2019hierarchical} can only generate facial expressions without any head movements under a fixed alignment since the head motion modeling has been omitted. Talking-head methods~\cite{zakharov2019few,chen2019hierarchical,wiles2018x2face} are able to generate high-quality videos with convoluted facial expression and head motion. However, due to the lack of explicit head motion modeling, these methods can not generate controllable video, e.g., using audio to drive the generation. 
 
 \subsection{Related Techniques }
 \label{subsec:related_tec}
 \noindent \textbf{Head Motion Modeling} \quad
-One challenging problem of talking-head video generation is head motion modeling, which has been ignored by previous works~\cite{pumarola2019ganimation,vougioukas2019realistic,chung2017you,ijcai2019-129,zhou2019talking}. However, people are sensitive to unnatural head motion and can easily tell the fake video if it is a still head with facial expressions. Some works~\cite{zakharov2019few,wang2018fewshotvid2vid,wiles2018x2face} employ facial landmarks or face images to establish a sparse or dense mapping to generate images with desired head motion. For example, Wiles et al., 2018  create a dense mapping between the image paired with target pose and a embedded face of reference subject and sample the pixels from the embedded face using the estimated mapping. However, the facial expressions and head movements are convoluted in the image and this method can not generate facial expressions or head movements separately. Fried et al.~\cite{Fried19} explore generating images with different head poses, but their method can only retrieve poses that exist in their footage database, which limits their method as a video editing method instead of a video generating method since they can not generate new head motion for feature frames. We explicitly model the head motion and facial expression in a disentangle manner and propose a method to extrapolate rhythmic head motion for future frames to enable audio-driven talking-head generation.  % In this work, we propose a new fundamental problem in taking-head generation tasks: modeling the head motion while synthesis videos from other conditioned user input data. And we discussed our head motion extrapolation in the method section, which, to the best of our knowledge, is the first paper consider head motion modeling in talking-head video generation task. 
-%controlling the facial expression and head model separately, 
+In real-world scenarios, people nautically emit head movements when we speak, which are highly convoluted with our facial expressions. Previous talking-head generation methods either omit the head motion~\cite{pumarola2019ganimation,chen2019hierarchical,chung2017you,ijcai2019-129,zhou2019talking,vougioukas2019realistic}, reply on image/landmark as dense/sparse guidance~\cite{wiles2018x2face,zakharov2019few,wang2018fewshotvid2vid}, or require a large video corpus of the target person and only edit small regions (e.g. lip regions) of the face~\cite{suwajanakorn2017synthesizing,fried2019text}. Those methods either fail to output a controllable talking-head video, or are not generalizable to unseen identities, which we argue greatly limits their use. For example, Wiles et al.~\cite{wiles2018x2face} create a dense mapping between the image paired with target pose and a embedded face of reference subject, then sample the pixels from the embedded face using the estimated mapping. This method can only generate image with target head pose and facial expression provided by the reference image, which can not be manipulated separately (e.g., drive the facial expression with audio). Some works~\cite{suwajanakorn2017synthesizing,fried2019text} generate a small region (e.g., lip region) and compose it with a retrieved frame from a large video corpus of the target person. For instance, Fried et al.~\cite{fried2019text} explore generating images with different head poses, but their method can only retrieve poses that exist in their footage database, which limits their method as a video editing method instead of a video generating method. We explicitly model the head motion and facial expression in a disentangle manner and propose a method to extrapolate rhythmic head motion for future frames to enable audio-driven talking-head generation.  
 
-\noindent \textbf{Attention Mechanism} \quad Attention mechanism, proposed by Vondrick et al.~\cite{vondrick2016generating}, has been well explored in image/video generation task~\cite{vondrick2016generating,wang2018vid2vid,pumarola2019ganimation,chen2019hierarchical}. For instance, Pumarola et al.~\cite{pumarola2019ganimation} compute the final output image by $\hat{\mathbf{I}} = (1 - \mathbf{A}) * \mathbf{C} + \mathbf{A} * \mathbf{I}_r $, where $\mathbf{I}_r$, $\mathbf{A}$ and $\mathbf{C}$ are input reference image, attention map and color mask, respectively. The attention map $\mathbf{A}$ indicates to what extend each pixel of $\mathbf{C}$ contributes to the output image $\hat{\mathbf{I}}$. However, this attention mechanism is not working if there exits large deformation between reference frame $\mathbf{I}_r$ and target frame $\hat{\mathbf{I}}$. Wang et al., 2019~\cite{wang2018high} use estimated optic flow to warp the $\mathbf{I}_r$ to align with $\hat{\mathbf{I}}$, which is computationally expensive and can not estimate the rotations in talking-head videos. In this paper, we propose a 3D manipulation solution to better tackle the misalignment problem caused by head motion. 
+\noindent \textbf{Attention Mechanism} \quad Attention mechanism, proposed by Vondrick et al.~\cite{vondrick2016generating}, has been well explored in image/video generation task~\cite{vondrick2016generating,wang2018vid2vid,pumarola2019ganimation,chen2019hierarchical}. For instance, Pumarola et al.~\cite{pumarola2019ganimation} compute the final output image by $\hat{\mathbf{I}} = (1 - \mathbf{A}) * \mathbf{C} + \mathbf{A} * \mathbf{I}_r $, where $\mathbf{I}_r$, $\mathbf{A}$ and $\mathbf{C}$ are input reference image, attention map and color mask, respectively. The attention map $\mathbf{A}$ indicates to what extend each pixel of $\mathbf{C}$ contributes to the output image $\hat{\mathbf{I}}$. However, this attention mechanism is not working if there exits large deformation between reference frame $\mathbf{I}_r$ and target frame $\hat{\mathbf{I}}$. Wang et al.~\cite{wang2018high} use estimated optic flow to warp the $\mathbf{I}_r$ to align with $\hat{\mathbf{I}}$, which is computationally expensive and can not estimate the rotations in talking-head videos. In this paper, we propose a 3D manipulation solution along with a none-linear composition module to better tackle the misalignment problem caused by large head motion. 
 
-\noindent \textbf{Temporal Dependency Modeling} \quad 
-One of the main differences between the image-to-image generation and video generation is the temporal-dependency modeling, which is overlooked by previous talking-head generation works~\cite{chung2017you,wiles2018x2face,zakharov2019few,chen2018lip}. It is worth to mention that Song et al., 2019~\cite{ijcai2019-129} compare different conditional video generation schemes and propose a recurrent frame generation scheme. However, their recurrent unit is limited to refine the feature vector (lack of spatial information), which failed to consider the temporal smoothness in the generation stage. In this paper, we propose a novel \textit{TP-GRU} unit to model the temporal dependencies at the generation stage. Furthermore, we propose a novel matching scheme to leverage the given video frames to contribute to the synthesized video frames in the generation stage to better model the temporal consistency.
 \begin{figure}[t]
 \includegraphics[width=1.0 \linewidth]{latex/images/main.pdf}
-\caption{The overview of the framework, which consists of three modules: green, blue and orange part are the \textit{3D Aware} Module, the \textit{TP-GRU} module and the \textit{AttBuilder} module, respectively.}
+\caption{The overview of the framework.}
 % \vspace{-6.5mm}
 \label{fig:main}
 \end{figure}
@@ -204,14 +202,10 @@ One of the main differences between the image-to-image generation and video gene
 \section{Method}
 \label{sec:method}
 
-%\CXu{I made a quick pass of the next two sections and fixed some obvious errors in notation. Someone should check the notations carefully.}
-
-
 \subsection{Problem Formulation}
 \label{subsec:problem_formulation}
-
-%\CXu{Combine the next two paragraphs into one *short* paragraph. Simply tell the problem settings in *training* only. Point the readers to read the next section (Sec. 4) for different driven modalities in inference.}
-%\CXu{$--->$ Start from here:}
+% Hybrid-Attention for embedding network
+% None-linear composition module
 We introduce a neural approach for talking-head video generation leveraging temporal modeling and 3D manipulation. Our approach takes as input sampled video frames, $\mathbi{\mathbi{y}}_{1:\tau} \equiv \mathbi{\mathbi{y}}_1,...,\mathbi{\mathbi{y}}_{\tau}$, of the target subject and a sequence of driving audio, $\mathbi{\mathbi{x}}_{\tau+ 1:T}  \equiv \mathbi{\mathbi{x}}_{\tau + 1},...,\mathbi{\mathbi{x}}_T$, and synthesizes target video frames, $\hat{\mathbi{y}}_{\tau + 1:T}  \equiv \hat{\mathbi{y}}_{\tau + 1}, ...,\hat{\mathbi{y}}_T$, that convey the given audio signal with realistic head movements. To explicitly model the facial expression and head movements, we decouple the full model into three sub-models: a facial expression learner ($\Psi$), a head motion learner ($\Phi$) and a sequential generative network ($\Theta$). Specifically, given the input audio sequence $\mathbi{\mathbi{x}}_{\tau+ 1:T}$ and one example image frame $\mathbi{\mathbi{y}}_{1}$, $\Psi$ generates the facial expression $\hat{\mathbi{e}}_{\tau+1: T}$. Given the short reference video $\mathbi{\mathbi{y}}_{1:\tau}$ and audio, the $\psi$ extrapolates realistic head motion $\hat{\mathbi{h}}_{\tau + 1:T}$ to manipulate the head movements. And finally the $\Theta$ generates video frames $\hat{\mathbi{y}}_{\tau + 1:T}$ using $\hat{\mathbi{e}}_{\tau+1: T}, \hat{\mathbi{h}}_{\tau+1: T}$ and $\mathbi{\mathbi{y}}_{1:\tau}$.  Thus, the sequential generative model is given by:
 \begin{equation}
 \begin{aligned}
@@ -219,12 +213,14 @@ We introduce a neural approach for talking-head video generation leveraging temp
 \end{aligned}
 \label{eq:training}    
 \end{equation}
-% \CXu{What is $F$?}
-The proposed framework (see Fig.~\ref{fig:main}) aims to exploit the facial texture and head motion information in $\mathbi{y}_{1:\tau}$, and maps the driving audio signal, to a sequence of generated video frames, $\hat{\mathbi{y}}_{ \tau+1:T}$. The three learners ($\Psi, \Phi, \Theta$) are trained in a decoupled way so that $\Theta$ can be trained with teacher forcing strategy. To avoid the error accumulation caused by $\hat{\mathbi{p}}_{\tau + 1:T}$ and $\hat{\mathbi{h}}_{\tau + 1:T}$, $\Theta$ is conditioned on ground truth facial expression ${\mathbi{p}}_{\tau + 1:T}$ and head motion ${\mathbi{h}}_{\tau + 1:T}$ during training. We discuss the network architecture and training details of $\Psi$, $\Phi$ in Sec.~\ref{subsec:facial_exp} and Sec.~\ref{subsec:head_mo}, respectively. We briefly introduce the video generation network $\Theta$ in Sec.~\ref{subsec:3dgenerator} and extend the details is in Sec.~\ref{sec:3dgan}.
 
+The proposed framework (see Fig.~\ref{fig:main}) aims to exploit the facial texture and head motion information in $\mathbi{y}_{1:\tau}$, and maps the driving audio signal, to a sequence of generated video frames, $\hat{\mathbi{y}}_{ \tau+1:T}$. The three learners ($\Psi, \Phi, \Theta$) are trained in a decoupled way so that $\Theta$ can be trained with teacher forcing strategy. 
+%We discuss the network architecture and training details of $\Psi$, $\Phi$ in Sec.~\ref{subsec:facial_exp} and Sec.~\ref{subsec:head_mo}, respectively. We briefly introduce the video generation network $\Theta$ in Sec.~\ref{subsec:3dgenerator} and extend the details is in Sec.~\ref{sec:3dgan}.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% key novelty 1 : 3D-Aware Head movement solver
 \subsection{Facial Expression Learner}
 \label{subsec:facial_exp}
-The facial expression learner $\Psi$ (see Fig.~\ref{fig:main} red block) transfers driving audio signal into facial expression while keeping the identity information, which receives as input the raw audio signal $\mathbi{x}_{\tau +1:T}$, and a subject-specific RGB image $\mathbi{y}_{t_{\mathcal{M}}}$ (see Sec.~\ref{subsec:3d_man} about how to select $\mathbi{y}_{t_{\mathcal{M}}}$), from which we extract the landmark identity feature $\mathbi{p}_{t_{\mathcal{M}}}$. The desired output are PCA components of the 3D landmarks ${\hat{\mathbi{p}}}_{t}$ that convey the facial expression. During training, we mix $\mathbi{x}_{\tau +1:T}$ with a randomly selected noise file in 6 to 30 dB SNRs with 3 dB increments to increase the network robustness. At time step $t$, $\Psi$ encodes audio clip $\mathbi{x}_{t-3:t+4}$ ($0.04 \times 7$ Sec) into audio feature, then injects the encoded reference landmark feature to it and decodes the fused feature into PCA components of target landmark ${\hat{\mathbi{p}}}_{t}$. We calculate the MSE loss on the PCA components. During inference, we can add the identity feature  $\mathbi{y}_{t_{\mathcal{M}}}$ back to the resultant landmark ${\hat{\mathbi{p}}}_{t}$ to keep the identity information. 
+The facial expression learner $\Psi$ (see Fig.~\ref{fig:main} red block) receives as input the raw audio signal $\mathbi{x}_{\tau +1:T}$, and a subject-specific RGB image $\mathbi{y}_{t_{\mathcal{M}}}$ (see Sec.~\ref{subsec:3d_man} about how to select $\mathbi{y}_{t_{\mathcal{M}}}$), from which we extract the landmark identity feature $\mathbi{p}_{t_{\mathcal{M}}}$. The desired outputs are PCA components ${\hat{\mathbi{p}}}_{\tau + 1 :T}$ that convey the facial expression. During training, we mix $\mathbi{x}_{\tau +1:T}$ with a randomly selected noise file in 6 to 30 dB SNRs with 3 dB increments to increase the network robustness. At time step $t$, $\Psi$ encodes audio clip $\mathbi{x}_{t-3:t+4}$ ($0.04 \times 7$ Sec) into audio feature, then injects the encoded reference landmark feature to it and decodes the fused feature into PCA components of target expression ${\hat{\mathbi{p}}}_{t}$. We calculate the MSE loss on the PCA components. During inference, we can add the identity feature $\mathbi{p}_{t_{\mathcal{M}}}$ back to the resultant facial expression ${\hat{\mathbi{p}}}_{t}$ to keep the identity information. 
 \begin{figure}[t]
 \includegraphics[width= \linewidth]{latex/images/RT_reduce.pdf}
 \caption{ (a) shows the movement vector extraction. The $\mathbi{l}_t$ is the original landmark at time step t, after disentangling, the resultant $\mathbi{p}_t$ is facial expression and the estimated $[\mathbi{R,T}]_t$ is the head motion. (b) shows the head movement coefficients of randomly-selected two identities in different videos. PID, VID indicates identity id and video id, respectively. }
@@ -233,43 +229,13 @@ The facial expression learner $\Psi$ (see Fig.~\ref{fig:main} red block) transfe
 \label{fig:rt_compute}
 \end{figure}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% key novelty 1 : 3D-Aware Head movement solver 
-
-
-
-% Hybrid-Attention for embedding network
-
-
-
-% None-linear composition module
-
 \subsection{Head Motion Learner}
 \label{subsec:head_mo}
-To synthesize realistic talking-head videos, we introduce a head motion extrapolation method $\Phi$, which predicts the head movements $\hat{\mathbi{h}}_{\tau +1:T}$ based on the driving audio signal and the short reference video clip $\mathbi{y}_{1:\tau}$, from which we disentangle the reference head motion ${\mathbi{h}}_{1:\tau}$.
+To generate talking-head video with natural head movements, we introduce a head motion learner $\Phi$, which disentangles the reference head motion ${\mathbi{h}}_{1:\tau}$ from the input reference video clip $\mathbi{y}_{1:\tau}$, and predicts the head movements $\hat{\mathbi{h}}_{\tau +1:T}$ based on the driving audio ${\mathbi{x}}_{1:T}$ and ${\mathbi{h}}_{1:\tau}$.
 
- \noindent {\bf{Motion Disentangler.}}\indent 3D facial landmarks not only carry head movements but also carry annoying uncontrollable facial expression information. At each time step $t$, to disentangle head motions from a given 3D landmark $\mathbi{l}_t$, we introduce a motion disentangler, which takes 3D landmark $\mathbi{l}_t$ and disentangle it into head motion $\mathbi{h}_{t}$ and facial expression ${\mathbi{p}}_{t}$.
+ \noindent {\bf{Motion Disentangler.}}\indent Rather than disentangling the head motion problem in image space, we learn the head movements $\mathbi{h}$ in \lchen{3D geometry space}. Specifically, we compute the transformation matrix $[\mathbf{R},\mathbf{T}] \in \mathbb{R}^{6}$ to represent $\mathbi{h}$, where we omit the camera motion and other factors (see Fig.~\ref{fig:rt_compute}(a)). At each time step $t$, we compute the rigid transformation $[\mathbf{R},\mathbf{T}]_t$ from the paired face landmark $\mathbi{l}_t$ to the canonical 3D facial landmark $\mathbi{l}^*$, which is ${\mathbi{p}}_t = \mathbf{R}_t  \mathbi{l}_t + \mathbf{T}_t$. After transformation, the head movement information is removed, and the resultant ${\mathbi{p}}_t$ only carries the facial expression information, which is correlated with the input condition $\mathbi{x}_t$. To avoid the noise caused by non-rigid deformation, we select 27 points (marked as red points in Fig.~\ref{fig:rt_compute}(a)), which contain less non-rigid deformation.
  
-To simplify this problem, rather than modeling the head motion problem in 3D landmark space $\mathbb{R}^{68 \times 3}$, we learn the head movements in linear algebra space. At each time step $t$, we compute the transformation matrix $[\mathbf{R},\mathbf{T}]_t \in \mathbb{R}^{6}$  to represent $\mathbi{h}_{t}$, which is ${\mathbi{h}}_{t} \thickapprox [{\mathbf{R}},{\mathbf{T}]}_{t}$,
-% That is:
-% \begin{equation}
-% \begin{aligned}
-% {\mathbi{h}}_{t}, {\mathbi{e}}_{t}  = \textit{disentangler} ( \mathbi{l}_{t} )  \enspace.
-% \end{aligned}
-% \label{eq:disentangle}    
-% \end{equation}
-%However, the 3D landmark vector $\mathbi{l}_{1:\tau}$ contains many head-movement-non-correlated noise (e.g. facial expressions), and makes  \textit{disentangler} hard to extract head movement representations.
-% \begin{equation}
-% \begin{aligned}
-% {\mathbi{h}}_{t} \thickapprox [{\mathbf{R}},{\mathbf{T}]}_{t} \enspace,
-% \end{aligned}
-% \label{eq:headmovement2}    
-% \end{equation}
-where we ignore the camera motion and assume the synthesized translation matrix is the head motion vector.
-Specifically, we compute the rigid transformation $[\mathbf{R},\mathbf{T}]_t$ from the paired face landmark $\mathbi{l}_t$ to the canonical 3D facial landmark $\mathbi{l}^*$, which is ${\mathbi{p}}_t = \mathbf{R}_t   \mathbi{l}_t + \mathbf{T}_t$. Fig.~\ref{fig:rt_compute} illustrates above procedure. We can find that after transformation, the head movement information is removed, and the resultant ${\mathbi{p}}_t$ only carries the facial expression information, which is correlated with the input condition $\mathbi{x}_t$. To avoid the noise caused by non-rigid deformation, we select 27 points (marked as red points in Fig.~\ref{fig:rt_compute}), which contain less non-rigid deformation.
- 
- \noindent {\bf{The natural head motion extrapolation.}}\indent We randomly select two identities (each with four videos) from VoxCeleb and plot the motion coefficients (see Fig.~\ref{fig:rt_compute}(b)). We can observe that the same identity (same PID, different VID) has similar head motion patterns in different videos, and different identities (different PID) have different head motion patterns. To explicitly learn learning the individual's periodic movements from ${\mathbi{h}}_{1:\tau}$ and audio-correlated head movements from ${{\mathbi{x}}}_{1:T}$, %we propose a recurrent motion extrapolation network $\Phi$%, 
- we propose a few shot temporal convolution network $\Phi$, which can be formulated as: ${\hat{\mathbi{h}}}_{\tau+1:T} = \Phi( f({{\mathbi{h}}}_{1:\tau}, {{\mathbi{x}}}_{1:\tau}), {{\mathbi{x}}}_{\tau:T})$. In details, the encoder module $f$ in the network first encodes ${\mathbi{h}}_{1:\tau}$ and ${{\mathbi{x}}}_{1:\tau}$ to a high-dimensional feature for each individual sample, and then transforms the feature to weights for the following linear layer. The audio features are also encoded with temporal convolution blocks and then processed by the sample specific linear layer to generate ${\hat{\mathbi{h}}}_{\tau+1:T}$. {\lchen{I will add the lstm network here.}}
+ \noindent {\bf{The natural head motion extrapolation.}}\indent We randomly select two identities (each with four videos) from VoxCeleb2~\cite{Chung18b} and plot the motion coefficients (see Fig.~\ref{fig:rt_compute}(b)). We can observe that the same identity (same PID, different VID) has similar head motion patterns in different videos, and different identities (different PID) have different head motion patterns. To explicitly learn learning the individual's movements from ${\mathbi{h}}_{1:\tau}$ and audio-correlated head movements from ${{\mathbi{x}}}_{1:T}$, we propose a few shot temporal convolution network $\Phi$, which can be formulated as: ${\hat{\mathbi{h}}}_{\tau+1:T} = \Phi( f({{\mathbi{h}}}_{1:\tau}, {{\mathbi{x}}}_{1:\tau}), {{\mathbi{x}}}_{\tau:T})$. In details, the encoder module $f$ first encodes ${\mathbi{h}}_{1:\tau}$ and ${{\mathbi{x}}}_{1:\tau}$ to a high-dimensional feature for each individual sample, and then transforms the feature to weights for the following linear layer. The audio features are also encoded with temporal convolution blocks and then processed by the sample specific linear layer to generate ${\hat{\mathbi{h}}}_{\tau+1:T}$.
  
  %Thanks to the Lie Group framework for affine interpolation~\cite{bansal2019affine}, from two given affine transformations $\mathbb{T}_1$ and $\mathbb{T}_2$, an intermediate transformation can be represented as a $\mathbb{T}(\xi), \xi\in[0,1]$, such that $\mathbb{T}(0)=\mathbb{T}_1$ and $\mathbb{T}(1)=\mathbb{T}_2$. Specifically, for rigid transformation, the Lie group representation of the interpolated transformation between $[\mathbf{R},\mathbf{T}]_1$ and $[\mathbf{R},\mathbf{T}]_\tau$ at $\xi$, is given by:
 %\begin{equation}
@@ -283,19 +249,8 @@ Specifically, we compute the rigid transformation $[\mathbf{R},\mathbf{T}]_t$ fr
 %In Fig.~\ref{fig:rtextra}, we visualize the head motion by applying $[\mathbf{R},\mathbf{T}]_i$ to the reconstructed 3D face $\mathcal{M}$ and then rendering with the 3D Projector (see Sec.~\ref{subsec:3d_man}). The bottom curve in Fig.~\ref{fig:rtextra} is the parameter $\xi$ over time.
 \subsection{3D Aware Generative Network}
 \label{subsec:3dgenerator}
-%Besides the natural head movements and expression synthesizing, a key difference between still image generation and talking-head video generation is temporal-dependency modeling. 
-The 3D Aware generative network $\Theta$ fuses the movement ($\hat{\mathbi{h}}_{\tau + 1:T}$), and expression ($\hat{\mathbi{p}}_{\tau + 1:T}$) with the appearance feature from ${\mathbi{y}}_{1:\tau }$ to synthesizes target
-video frames, $\hat{\mathbi{y}}_{\tau + 1:T}$ in a sequential 3D-aware manual. The 3D aware module (Fig.~\ref{fig:main} green part) unprojects 3D mesh from input reference image and generates different 3D projections as the network input. The network learns a dense mapping from the projection input. Comparing to landmark-only input~\cite{zakharov2019few,wang2018fewshotvid2vid,wang2018high}, it can alleviate the overfitting problem and make training converge faster. Different reference images carries different appearance information. The texture-preserving embedding module (Fig.~\ref{fig:main} blue part) is proposed to explicitly embed texture feature from different  appearance patterns by a hybrid-attention network. The none-linear composition module is proposed to stabilize the background and better preserve the individual appearance at the end of the generation while considering the temporal-dependency modeling. Comparing to other state-of-the-art face generation methods~\cite{chung2017you,pumarola2019ganimation,zhou2019talking,zakharov2019few,wang2018high}, our none-linear composition module can synthesize videos with natural lip synchronization, smoother transition and more stable background.
+As mentioned before, landmark/image guided methods can not generate controllable videos since the head motion and facial expression are highly convoluted in RGB videos. To generate controllable videos. We propose a 3D aware generative network $\Theta$, which fuses the movement ($\hat{\mathbi{h}}_{\tau + 1:T}$), and expression ($\hat{\mathbi{p}}_{\tau + 1:T}$) with the appearance feature from ${\mathbi{y}}_{1:\tau }$ to synthesizes target video frames, $\hat{\mathbi{y}}_{\tau + 1:T}$ in a sequential 3D-aware manual. We manipulate the head motion to reconstruct an intermediate image that carries desired head pose using a differentiable unprojection-projection step to ease the burden of the generation. Comparing to landmark-only input~\cite{zakharov2019few,wang2018fewshotvid2vid,wang2018high}, it can alleviate the overfitting problem and make training converge faster. Different reference images carries different appearance information. The texture-preserving embedding module (Fig.~\ref{fig:main} blue part) is proposed to explicitly embed texture feature from different  appearance patterns by a hybrid-attention network. The none-linear composition module is proposed to stabilize the background and better preserve the individual appearance at the end of the generation while considering the temporal-dependency modeling. Comparing to other state-of-the-art face generation methods~\cite{chung2017you,pumarola2019ganimation,zhou2019talking,zakharov2019few,wang2018high}, our none-linear composition module can synthesize videos with natural lip synchronization, smoother transition and more stable background.
 
-
-% \CXu{$<--$ Goes to the next three sections, only if needed. Otherwise, delete.}
-
-
-% For each video sequence, we choose the most visible frame from $y_{1:\tau}$ and feed it to a pretrained U-net structure network~\cite{feng2018joint} to unproject it to 3D mesh $\mathcal{M}$. Then we randomly select $K$ images from the input $\tau$ continuous frames as references and use an \textit{embedding network} to embed the references into an appearance vector $\mathbi{z}_{y} \in \mathbb{R}^{512}$. Then, at each time step $t$, we disentangle the head motion, $\mathbi{h}_t \in \mathbb{R}^{6}$ from the given 3D facial landmark $\mathbi{l}_t \in \mathbb{R}^{68 \times 3}$ using \textit{motion disentangle} module and manipulate the 3D mesh $\mathcal{M}$ using the computed head motion $\mathbi{h}_{t}$ to get a new projection $\tilde{\mathbi{y}}_t$. The projected image $\tilde{\mathbi{y}}_t$ is featured by the perfectly aligned texture information despite the facial expressions since it is computed by target $\mathbi{h}_t$. 
-
-% We feed the projected image and converted facial landmark image pair $[\tilde{\mathbi{y}}_t \in \mathbb{R}^{H\times W \times C}, \mathbi{l}_t \in \mathbb{R}^{H\times W \times C}] $ into convolutional layers to get the encoded expression feature $\mathbi{e}_t \in \mathbb{R}^{\frac{H}{64} \times \frac{w}{64} \times 512} $ and then fuse it with the embedded appearance vector $\mathbi{z}_y$ in \textit{TexAwaredGRU} module. Comparing to~\cite{zakharov2019few}, which only encodes landmark, our $\tilde{\mathbi{y}}_{t}$ provides a strong prior of the appearance feature at the encoding stage, which speeds up the convergence of the model and alleviates the overfitting problem caused by AdaIN normalization. 
-
-% Then after several convolutional layers with upsampling, we obtain foreground image $\mathbi{f}_t \in \mathbb{R}^{H\times W \times C}$. The disentangled head motion $\mathbi{h}_t$ can also be used to match a similar frame $\mathbi{sy}_{t} \in \mathbb{R}^{H\times W \times C}$ from the sampled images $\mathbi{y}_{1:K}$ by \textit{motion matcher}. The matched frame $\mathbi{sy}_{t}$ is featured in two perspective: the background region is almost aligned with target image $\mathbi{y}_{t}$ and the deformed region compared with foreground $\mathbi{f}_t$ is the place that need to be generated. We use a FG-Att block to generate a learnable foreground-background attention $\boldsymbol{\beta}_t \in \mathbb{R}^{H\times W \times 1}$. With the computed foreground $f_t, \boldsymbol{\beta}_t$ and background $\mathbi{sy}_{t}$, we get the final synthesized image $\hat{\mathbi{y}}_t \in \mathbb{R}^{H\times W \times C}$.
 \section{3D-Aware Generation}
 \label{sec:3dgan}
 \subsection{\textit{\textbf{3D Aware}} Module}
@@ -314,7 +269,7 @@ video frames, $\hat{\mathbi{y}}_{\tau + 1:T}$ in a sequential 3D-aware manual. T
 \end{equation}
 The topology of $\mathcal{M}$ will be fixed for all frames in one video, we denote it as $\mathcal{F}^{\mathcal{M}}$. Hence, $\mathcal{M}$ at $t$ can be represented as $\left[\mathcal{V}^{\mathcal{M}}_t, \mathcal{F}^{\mathcal{M}}\right]$. Finally, a differentiable rasterizer~\cite{liu2019softras} is applied here to render $\tilde{\mathbi{y}}_t$ from $\left[\mathcal{V}^{\mathcal{M}}_t, \mathcal{F}^{\mathcal{M}}\right]$. After rendering, $\tilde{\mathbi{y}}_t$ carries the same head pose from target frame ${\mathbi{y}}_{t}$ and the same expression from  ${\mathbi{y}}_{t_{\mathcal{M}}}$. So, the landmark of the projected frame can be obtained by $\tilde{\mathbi{l}}_t= \mathbi{h}_t \circledast \mathbi{p}_{t_{\mathcal{M}} }$, where $\circledast$ denotes the inverse operator of motion disentangler in Sec.~\ref{subsec:head_mo}.
 
-\noindent {\bf{Motion Matcher}}\indent   To infer the prior knowledge about the background of the target image from the given $K$ reference video frames, we propose a motion matcher, $M(\hat{\mathbi{h}}_t, \mathbi{h}_{1:K}, \mathbi{y}_{1:K})$, which matches a frame $\mathbi{y}_t^s$ with nearest head motion from the sampled reference images $\mathbi{y}_{1:K}$ by comparing the similarities between $\mathbi{h}_{t}$ with $\mathbi{h}_{1:K}$. Specifically, given the query head motion $\hat{\mathbi{h}}_t$, we are looking for the optimal image $\mathbi{y}_t^s$ that contains the most similar background as the target image $\mathbi{y}_t$ (without knowing $\mathbi{y}_t$). To solve this background retrieving problem, rather than directly compute the similarity between facial landmarks, we compute the geometry similarity cost $c_{t}$ using the head motion $\mathbi{h}_t$ and choose the $\mathbi{y}_t^s$ with the least cost $c_t$. That is:
+\noindent {\bf{Motion Matcher}}\indent To infer the prior knowledge about the background of the target image from the given $K$ reference video frames, we propose a motion matcher, $M(\hat{\mathbi{h}}_t, \mathbi{h}_{1:K}, \mathbi{y}_{1:K})$, which matches a frame $\mathbi{y}_t^s$ with nearest head motion from the sampled reference images $\mathbi{y}_{1:K}$ by comparing the similarities between $\mathbi{h}_{t}$ with $\mathbi{h}_{1:K}$. Specifically, given the query head motion $\hat{\mathbi{h}}_t$, we are looking for the optimal image $\mathbi{y}_t^s$ that contains the most similar background as the target image $\mathbi{y}_t$ (without knowing $\mathbi{y}_t$). To solve this background retrieving problem, rather than directly compute the similarity between facial landmarks, we compute the geometry similarity cost $c_{t}$ using the head motion $\mathbi{h}_t$ and choose the $\mathbi{y}_t^s$ with the least cost $c_t$. That is:
 \begin{equation}
 \begin{aligned}
 c_{t}= \min_{k=1,2,...K}  \lVert \mathbi{h}_t - \mathbi{h}_k \rVert^2_2 \enspace.
@@ -324,53 +279,63 @@ c_{t}= \min_{k=1,2,...K}  \lVert \mathbi{h}_t - \mathbi{h}_k \rVert^2_2 \enspace
   Then, the matched $\mathbi{y}_t^s$ will be a input to the none-linear composition module in Sec.~\ref{subsec:none-linear} since it carries the most similar background pattern to the target frame ${\mathbi{y}}_t$. During training, we manipulate the selection of $\mathbi{y}_t^s$ by increasing the cost $c_{t}$, which makes the none-linear composition module more robust to $\mathbi{y}_t^s$.  
   %Then, based on $\tilde{\mathbi{y}}_t$, we compute a binary mask, dilate it with 5 iterations and mask out the head regions in $\mathbi{y}_t^s$ using the dilated binary mask. The masked image frame $\mathbi{y}^s_{t}$ will be passed to the \textit{AttBuilder} module (see Sec.~\ref{subsec:AttBuilder}) as input. 
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
- 
-\subsection{Texture-Preserving Embedding Module}
-\label{subsec:details}
-Fig.~\ref{fig:embed_gan}(a) shows the structure of our  texture-preserving embedding network, which extracts the feature from input preference images and landmarks using a hybrid-attention mechanism, and then dynamically fuses the features by a texture-preserving fusion network. 
+ \begin{figure}[t]
+\includegraphics[width= \linewidth]{latex/images/attention.png}
+\caption{The network structure.}
+\label{fig:attention}
+\end{figure}
 
-\noindent {\bf{Hybrid-Attention-based Texture Extraction.}}\indent We randomly select $K$, $1 \leq K \leq \tau$, image frames $\mathbi{y}_1, ..., \mathbi{y}_k$ from the input continuous $\tau$ frames as references, and transfer the corresponding facial landmarks to gray-scale images  $\mathbi{l}_1,..., \mathbi{l}_k$. The extraction network consists of three sub-networks: the Attention Encoders ($E_{A}$) to generate the weights for each references, an Image Embedding network ($E_{I}$) to extract the image features, and a Landmark Embedding network ($E_{L}$) to extract landmark features. Instead of averaging the $K$ reference image features~\cite{zakharov2019few,chung2017you,wiles2018x2face}, we design a hybrid-attention mechanism~\cite{wang2019few,pumarola2019ganimation} to dynamically aggregate the $K$ visual features. The attention-based embedding network is performed by:
+\subsection{Hybrid Embedding Module}
+\label{subsec:details}
+We randomly select $K$ frames, $\mathbi{y}_{1:K}$ from $\mathbi{y}_{1:\tau}$ as reference images, and transfer the corresponding facial landmarks to gray-scale images $\mathbi{l}_{1:K}$. Instead of averaging the $K$ reference image features~\cite{zakharov2019few,chung2017you,wiles2018x2face}, we design a hybrid embedding mechanism to dynamically aggregate the $K$ visual features.
+
+Fig.~\ref{fig:attention} shows the structure of our hybrid embedding network, which consists of four sub-networks: the Activation Encoder ($E_{A}$, green part) to generate the activation map between the query landmark $\mathbi{l}_t$ and reference landmarks $\mathbi{l}_{1:K}$, an Image Embedding network ($E_{I}$, blue part) to extract the image feature $\mathbi{e}_{y}$, a Landmark Embedding network ($E_{L}$, yellow part) to extract landmark feature $\mathbi{e}_{l}$, and a fusion network ($E_{F}$, pink part) to aggregate image feature and landmark feature into parameter set $\theta$. The overview of the embedding network is performed by:
 \begin{align}
 \label{eq:attention}
-&\boldsymbol{\alpha}_{k} = \text{softmax}( E_{A_{ref}}(\mathbi{l}_k) \odot E_{A_{tar}}(\mathbi{l}_t))
+&\boldsymbol{\alpha}_{k} = \text{softmax}( E_{A}(\mathbi{l}_k) \odot E_{A}(\mathbi{l}_t))\enspace , k \in [1,K]
 \enspace, \\
 \label{eq:img_embed}
 &\mathbi{e}_{\mathbi{y}} =  E_{I}(\mathbi{y}_{1:K}, \boldsymbol{\alpha}_{1:K})
-\enspace,  \mathbi{e}_{\mathbi{l}} =  E_{L}(\mathbi{l}_{1:K}, \boldsymbol{\alpha}_{1:K}) \enspace  \enspace,
-% \label{eq:fusion}
-% &
-% \enspace, \\
-% \label{eq:generator3}
-% &\enspace , &&
+\enspace,  \mathbi{e}_{\mathbi{l}} =  E_{L}(\mathbi{l}_{1:K}, \boldsymbol{\alpha}_{1:K})   \enspace, \\
+\label{eq:fusion}
+&\theta  = E_F(\mathbi{e}_{\mathbi{l}}, \mathbi{e}_{\mathbi{y}}) \enspace, 
 \end{align}
 % talk about the fusion network
-where $\odot$ denotes element-wise multiplication. The attention $\boldsymbol{\alpha}_{k}$ is the correlation between ${k^{th}}$ reference landmark and target landmark, which represents the similarity between the ${k^{th}}$ reference image and the target image. Reference landmark encoder $E_{A_{ref}}$ and target landmark encoder $E_{A_{tar}}$ have the same network structure, but do not share the weights. $E_{I}$ consists of several convolutional layers. We element-wise multiply the attention $\boldsymbol{\alpha}_{k}$ with the intermediate convolutional feature of $E_{I}$, then sum up $K$ feature maps to dynamically aggregate the image features and pass it to the following convolutional layers to output the reference image feature $\mathbi{e}_{\mathbi{y}}  \in \mathbb{R}^{ C^0 \times  H \times W}$. The $C^0, H$ and $W$ are the number of channels, and spatial dimensions of the input feature maps, respectively. $E_{L}$ follows the same protocol as $E_{I}$ and output the reference landmark feature $\mathbi{e}_{\mathbi{l}}$. We input $\mathbi{e}_{\mathbi{y}}$ as appearance vector to the composition module. The detailed network structures are illustrated in \textit{Supplementary Material}. 
+where $\odot$ denotes element-wise multiplication. We regard the activation map $\boldsymbol{\alpha}_{k}$ as the activation energy between ${k^{th}}$ reference landmark and target landmark, which approximates the similarity between the ${k^{th}}$ reference image and the target image. 
 
-\noindent {\bf{Texture-Preserving Fusion.}}\indent The Fusion network $E_{F}$ aggregates the landmark feature $\mathbi{e}_{\mathbi{l}}$ and image feature $\mathbi{e}_{\mathbi{y}} $ into appearance feature $\mathbi{z}^{n} \in \mathbb{R}^{C^n \times C^n} $ , where $n \in [1,N]$ and $C^n$ is the number of channels of $n^{th}$ convolutional layer. $E_{F}$ consists of three blocks: a $N$-layer image feature encoding block $E_{F_{I}}$, a landmark feature encoding block $E_{F_L}$, and a multi-layer perception block $E_{F_{p}}$ to aggregate reference features.
+We observed that different reference images may carry different appearance pattern, and those appearance pattern shares some features with the reference landmarks (e.g., head pose, and edges). Assuming that knowing the information of one modality can better encode the feature of another modality, we hybrid the information between $E_{I}$ and $E_{L}$. Specifically, after two convolutional layers, the extracted feature map $\mathbi{q}_{y_{1:K}}$ and $\mathbi{q}_{l_{1:K}}$ are forwarded to a information exchange block to refine their feature. Then the hybrid feature is concatenated with the original $\mathbi{q}_{y_{1:K}}$ and $\mathbi{q}_{l_{1:K}}$, and we pass the concatenated feature to a bottleneck convolution layer to produce the refined feature $\mathbi{q}^'_{y_{1:K}}$. At the meanwhile, we apply a ConvGate operation on $\mathbi{q}_{y_{1:K}}$ to self-aggregate the features from $K$ references, and then combine the gated feature and refined feature with the learnable activation map $\boldsymbol{\alpha}_{k}$:
 \begin{align}
-\label{eq:embed2}
-&\mathbi{z}_{\mathbi{y}}^n =  E_{F_I}(\mathbi{e}_{\mathbi{y}} )
-\enspace,  \mathbi{z}_{\mathbi{l}}^n =  E_{F_L}(\mathbi{e}_{\mathbi{l}}) \enspace, n \in [1, N]  \enspace,\\
-\label{eq:fusion}
-&{[\theta}^n_{\gamma}, {\theta}^n_{\beta}, {\theta}^n_{S}]  =  E^n_{F_p}( \mathbi{z}^n)=  E^n_{F_p}( \sum(\mathbi{z}_{\mathbi{y}}^n \odot  {\text{softmax}}( \mathbi{z}_{\mathbi{l}}^n) ))
+\label{eq:qy_combine}
+\mathbi{q}_{y}= \sum_{i=1}^{K} (\boldsymbol{\alpha}_{1:K} \odot \mathbi{q}^'_{y_{1:K}}) + \text{ConvGate}(\mathbi{q}_{y_{1:K}})
 \enspace.
 \end{align}
-After softmax, the landmark feature $\mathbi{z}_{\mathbi{l}}^n$ learns to attend more weights to frames which contain more appearance information. Then we sum up the fused feature at the last dimension and pass it to $E_{F_{p}}$, which consists of several fully connected layers. The $E_{F_{p}}$ encodes the appearance feature into three  three sets of weights: $[{\theta}^n_{\gamma}, {\theta}^n_{\beta}, {\theta}^n_{S}]$, which are used to compute the scale map $\gamma^n$ and bias map $\beta^n$ of $n^{th}$ SPADE block of the non-linear composition module in Sec.~\ref{subsec:none-linear}.
+Then, we apply several convolutional layers on the aggregated feature $\mathbi{q}_{y}$ and obtain the image feature vector $\mathbi{e}_y$. The landmark feature vector $\mathbi{e}_{l}$ is produced by following the same process.
+
+The Fusion network $E_{F}$ consists of three blocks: a $N$-layer image feature encoding block $E_{F_{I}}$, a landmark feature encoding block $E_{F_L}$, and a multi-layer perception block $E_{F_{p}}$ to aggregate reference features into appearance parameter set $\theta$:
+\begin{align}
+\label{eq:fusion2}
+\{\theta_\gamma^i, \theta_\beta^i, \theta_S^i\}_{i \in [1,N]} = E_{F_p}({\text{softmax}}(  E_{F_L}(\mathbi{e}_{\mathbi{l}})) \odot E_{F_I}(\mathbi{e}_{\mathbi{y}}) )
+\enspace,
+\end{align}
+where $\{\theta_\gamma^i, \theta_\beta^i, \theta_S^i\}_{i \in [1,N]}$ is the parameters of the $N$ layers of the none-linear composition module in Sec.~\ref{subsec:none-linear}.
+
+
+%The appearance latent vector $\mathbi{z}_y$ computed from the embedding network contains the global texture information of target identity. At each time step $t$, after encoding the input pair $[\mathbi{l}_t, \tilde{\mathbi{y}}_{t}]$, the resultant feature $\mathbi{e}_t$ carries the detailed facial expression and geometry information. Rather than simply concatenating the feature vectors~\cite{chung2017you,zhou2019talking,chen2018lip,chen2019hierarchical,ijcai2019-129}, we propose a \textit{TP-GRU} module, which aims to fuse appearance feature, geometry feature and expression feature in a recurrent manner. The \textit{TP-GRU} (see right part in Fig.~\ref{fig:network_details}) consists of eight convolution layers with residual connections and one layer of convolutional GRU. There are four convolution layers normalized by adaptive instance normalization (AdaIN)~\cite{huang2017arbitrary}. The AdaIN layers are initialized with zero means and unit variance at each time step. We then adaptively compute two sets of affine transformation parameters $[\boldsymbol{\mu},\boldsymbol{\sigma}^2]_1, [\boldsymbol{\mu},\boldsymbol{\sigma}^2]_2$ using $\mathbi{z}_y$ via two separately-learnable fully connected perceptions. We apply the two sets of parameters as scalars and biases to scale the activations in the two AdaIN layers before and after GRU, respectively. The intuition is that the affine transformation is spatially invariant and hence we can inject global appearance information to \textit{TP-GRU}. We empirically show TP-GRU learn to fuse novel appearance and strongly generalize to novel identities with different poses, appearances, and expressions (see Tab.~\ref{tab:lmark_tb} CSIM score).  %To avoid the error accumulation caused by $\hat{\mathbi{p}}_{\tau + 1:T}$ and $\hat{\mathbi{h}}_{\tau + 1:T}$, $\Theta$ is conditioned on ground truth facial expression ${\mathbi{p}}_{\tau + 1:T}$ and head motion ${\mathbi{h}}_{\tau + 1:T}$ during training.
 
 \begin{figure}[t]
-\includegraphics[width= \linewidth]{latex/images/embed_gan.pdf}
+\includegraphics[width= \linewidth]{latex/images/3dgan.png}
+\centering
 \caption{The network structure.}
-\label{fig:embed_gan}
+\label{fig:composite}
 \end{figure}
-
-%The appearance latent vector $\mathbi{z}_y$ computed from the embedding network contains the global texture information of target identity. At each time step $t$, after encoding the input pair $[\mathbi{l}_t, \tilde{\mathbi{y}}_{t}]$, the resultant feature $\mathbi{e}_t$ carries the detailed facial expression and geometry information. Rather than simply concatenating the feature vectors~\cite{chung2017you,zhou2019talking,chen2018lip,chen2019hierarchical,ijcai2019-129}, we propose a \textit{TP-GRU} module, which aims to fuse appearance feature, geometry feature and expression feature in a recurrent manner. The \textit{TP-GRU} (see right part in Fig.~\ref{fig:network_details}) consists of eight convolution layers with residual connections and one layer of convolutional GRU. There are four convolution layers normalized by adaptive instance normalization (AdaIN)~\cite{huang2017arbitrary}. The AdaIN layers are initialized with zero means and unit variance at each time step. We then adaptively compute two sets of affine transformation parameters $[\boldsymbol{\mu},\boldsymbol{\sigma}^2]_1, [\boldsymbol{\mu},\boldsymbol{\sigma}^2]_2$ using $\mathbi{z}_y$ via two separately-learnable fully connected perceptions. We apply the two sets of parameters as scalars and biases to scale the activations in the two AdaIN layers before and after GRU, respectively. The intuition is that the affine transformation is spatially invariant and hence we can inject global appearance information to \textit{TP-GRU}. We empirically show TP-GRU learn to fuse novel appearance and strongly generalize to novel identities with different poses, appearances, and expressions (see Tab.~\ref{tab:lmark_tb} CSIM score). 
-
 
 \subsection{None-Linear Composition Module} 
 \label{subsec:none-linear}
-We construct the module based on the idea that projected image $\tilde{\mathbi{y}}_t$ carries valuable texture information with better alignment to the ground-truth $ \mathbi{y}_t$ and the matched image $\mathbi{y}_t^s$ contains similar background pattern. To ease the burden of the generation, our none-linear composition module, shown in Fig.~\ref{fig:embed_gan}(b), receives as input the appearance weights $[{\theta}^n_{\gamma}, {\theta}^n_{\beta}, {\theta}^n_{S}]$, an appearance vector $\mathbi{e}_y$ along with $\mathbi{y}_t^s$ and $\tilde{\mathbi{y}}_t$, and outputs the synthesized frame $\hat{\mathbi{y}}_{t}$ at each time step $t$. Additionally, to have a smoother transaction between adjacent frames, we also apply a previous synthesized frame $\hat{\mathbi{y}}_{t-1}$ as a input of model.
+As mentioned before that the projected image $\tilde{\mathbi{y}}_t$ carries valuable texture information with better alignment to the ground-truth $ \mathbi{y}_t$, and the matched image $\mathbi{y}_t^s$ contains similar background pattern. To ease the burden of the generation, we input $\mathbi{y}_t^s$ and $\tilde{\mathbi{y}}_t$ as extra guidance to the generator $G$. Specifically, we obtain the warped image $\mathbi{y}_t^{'s}$ and $\tilde{\mathbi{y}}_t^{'} $ guided by the flow estimated between ${\mathbi{l}}^s_t, {\tilde{\mathbi{l}}}_t$ and ${\hat{\mathbi{l}}}_t$, respectively. We add one more branch at the last layer of the FlowNet~\cite{wang2018vid2vid}, which consists of one convolutional layer and a sigmoid activation, to yield the corresponding attention maps $\boldsymbol{\alpha}_{y_t^s}$ and $\boldsymbol{\alpha}_{\tilde{y}_t}$. Taking these attention maps as guidance, image matting function is a popular way to combine warped image with raw output of generator~\cite{wang2018fewshotvid2vid,wang2018vid2vid,chen2019hierarchical,pumarola2019ganimation}, but it may introduce obvious artifacts to $\hat{\mathbi{y}}_{t}$ caused by misalignment, which is amplified in the videos with large head movements. 
 
- Specifically, we obtain the warped image $\mathbi{y}_t^{'s}, \tilde{\mathbi{y}}_t^{'} $ and $\hat{\mathbi{y}}_{t-1}^{'}$ guided by the flow estimated between ${\mathbi{l}}^s_t, {\tilde{\mathbi{l}}}_t, {\hat{\mathbi{l}}}_{t-1} $ and ${\hat{\mathbi{l}}}_t$, respectively. We add one more branch at the last layer of the FlowNet~\cite{wang2018vid2vid}, which consists of one convolutional layer and a sigmoid activation, to yield the corresponding attention maps $\boldsymbol{\alpha}_{y_t^s}, \boldsymbol{\alpha}_{\tilde{y}_t}, \boldsymbol{\alpha}_{\hat{y}_{t-1}} $. Taking these attention maps as guidance, image matting function is a popular way to warped image with raw output of generator~\cite{wang2018fewshotvid2vid,wang2018vid2vid,chen2019hierarchical,pumarola2019ganimation}, but it always introduce obvious artifact to $\hat{\mathbi{y}}_{t}$ caused by small misalignment. Instead, we apply a nonlinear combination module. We embedded warped image and attention map pairs into $N$ groups of features $[E_t^{sm},\tilde{E}_t^m, \hat{E}_{t-1}^m], m\in [1, N]$ with $N$ convolutional layers, and then input them into SPADE~\cite{park2019semantic} to normalize corresponding feature maps of $e_y$ in generator $G$. Fusing warped image and $e_y$ in such high level representation results in more natural texture in $\hat{\mathbi{y}}_{t}$. Additionally, in order for better consistency between landmark $\hat{l}_t$ and $\hat{\mathbi{y}}_{t}$, we embedded $\hat{l}_t$ into $M$ features $\hat{E}_t^{lm}$ and append them together with $[E_t^{sm},\tilde{E}_t^m, \hat{E}_{t-1}^m]$ as input of SPADE. Follow~\cite{wang2018fewshotvid2vid}, $[\theta_s^n]$ are used for parameters of convolutional kernel to encode $\hat{l}_t$, and $[\theta_\gamma^n, \theta_\beta^n]$ are used for parameters of SPADE in generator to extract normalization maps.
+To solve the misalignment problem, we introduce a nonlinear combination module (see Fig.~\ref{fig:composite}). specifically, given the projection pair $[\tilde{\mathbi{y}}_t^{'},\boldsymbol{\alpha}_{\tilde{y}_t}]$, and matching pair $[\mathbi{y}_t^{'s}, \boldsymbol{\alpha}_{{y}_t^s}]$ 
+ 
+ We embedded warped image and attention map pairs into $N$ groups of features $[E_t^{sm},\tilde{E}_t^m, \hat{E}_{t-1}^m], m\in [1, N]$ with $N$ convolutional layers, and then input them into SPADE~\cite{park2019semantic} to normalize corresponding feature maps of $e_y$ in generator $G$. Fusing warped image and $e_y$ in such high level representation results in more natural texture in $\hat{\mathbi{y}}_{t}$. Additionally, in order for better consistency between landmark $\hat{l}_t$ and $\hat{\mathbi{y}}_{t}$, we embedded $\hat{l}_t$ into $M$ features $\hat{E}_t^{lm}$ and append them together with $[E_t^{sm},\tilde{E}_t^m, \hat{E}_{t-1}^m]$ as input of SPADE. Follow~\cite{wang2018fewshotvid2vid}, $[\theta_s^n]$ are used for parameters of convolutional kernel to encode $\hat{l}_t$, and $[\theta_\gamma^n, \theta_\beta^n]$ are used for parameters of SPADE in generator to extract normalization maps.
 
  For further comparison to linear-combination, our method is more robust to the spatial-misalignment between the two input images, especially when there is large head motion between the input frame and the ground-truth frame. Moreover, in our empirical study, this composition can correct the identity mismatch in the generation stage and make the network converge faster.
 
@@ -474,10 +439,12 @@ In this section, we conduct thoughtful experiments to demonstrate the effectiven
 %   \begin{tabular*}{\linewidth}{  p{2.8cm}| p{0.9cm}  p{0.9cm} p{0.9cm} p{1.1cm} p{0.9cm} |p{0.9 cm} p{0.9cm} p{0.9cm} p{0.9cm}  }
 \begin{tabular*}{\linewidth}{  l| c c c c c |c c c c}
       \toprule
+      \hline
     %   \toprule
 Method  & \multicolumn{9}{c}{Audio-driven}  \\ \hline
 Dataset & \multicolumn{5}{c}{LRW} & \multicolumn{4}{c}{VoxCeleb2}  \\
-      \midrule
+    %   \midrule 
+    % \hline
 & {LMD$\downarrow$} & {CSIM$\uparrow$} & {FID$\downarrow$} & {Human$\downarrow$} & {WER$\downarrow$} & {LMD$\downarrow$} & {CSIM$\uparrow$} & {FID$\downarrow$} & {Human$\downarrow$}  \\
 
 \hline
@@ -490,7 +457,7 @@ Dataset & \multicolumn{5}{c}{LRW} & \multicolumn{4}{c}{VoxCeleb2}  \\
   {Vougioukas et al., 2019~\cite{vougioukas2019realistic}}  &   &   &   &  &     &        &  \\   
 
   {Zhou et al., 2019~\cite{zhou2019talking}}  &   &   &   &  &     &        &  \\   
-    \bottomrule
+    % \bottomrule
   { Ours (K=1)} &   & \textbf{  }& \textbf{   }&  &   &\textbf{      } &\textbf{      }\\ %\hline
     %   \bottomrule
   \end{tabular*}
@@ -507,10 +474,11 @@ Dataset & \multicolumn{5}{c}{LRW} & \multicolumn{4}{c}{VoxCeleb2}  \\
     \begin{tabular*}{0.98\linewidth}{  l | c c  c c| c c c c }
 %   \begin{tabular*}{0.7\linewidth}{  p{2.8cm}| p{0.9cm} p{0.9cm} p{1.2cm} |p{1.2cm} p{0.9cm} p{0.9cm}}
       \toprule
-      \toprule
+      \hline
+    %   \toprule
  Method & \multicolumn{8}{c}{Landmark-driven}   \\ \hline
 Dataset & \multicolumn{4}{c}{LRS-TED} & \multicolumn{4}{c}{VoxCeleb2}  \\
-      \midrule
+    %   \midrule
 &{{\scriptsize{CSIM}}$\uparrow$}& {{\scriptsize{SSIM}}$\uparrow$} & 
 % {{\scriptsize{PSNR}}$\uparrow$}&
 {{\scriptsize{FID}}$\downarrow$} & {{\scriptsize{Human}}$\uparrow$} &{{\scriptsize{CSIM}}$\uparrow$}  %{{\scriptsize{PSNR}}$\uparrow$}
@@ -534,7 +502,7 @@ Dataset & \multicolumn{4}{c}{LRS-TED} & \multicolumn{4}{c}{VoxCeleb2}  \\
  {{\scriptsize{Zakharov et al., 2019~\cite{zakharov2019few}(K=32)}}} & {      } &{       } &{      } &     &     &         \\ %\hline
   {{\scriptsize{Wang et al., 2019~\cite{wang2018fewshotvid2vid}(K=32)}}} & { } &{ } &{ } & & &  & {} &{}   \\ %\hline
  {{\scriptsize{Ours (K=32)} }}&\bf{   } & \bf{     } &{     } & \bf{      } & \bf{      } &\bf{      }  \\ 
-      \bottomrule
+    %   \bottomrule
   \end{tabular*}
 %   \end{center}
   \caption{Quantitative results of different landmark to video methods on VoxCeleb1 dataset and VoxCeleb2 dataset. Our model mentioned in this table are trained from scratch. We bold each leading score. The number after each method denotes the $K$ frames of the target subject.}
@@ -543,7 +511,7 @@ Dataset & \multicolumn{4}{c}{LRS-TED} & \multicolumn{4}{c}{VoxCeleb2}  \\
   
 \subsection{Results and Analysis}
 \label{subsec:quanti_res}
-\noindent \textbf{Evaluation Metrics} \quad We use several criteria for quantitative evaluation. We use Fréchet Inception Distance (FID)~\cite{heusel2017gans}, mostly quantifying the fidelity of synthesized images, structured similarity (SSIM)~\cite{wang2004image} and PSNR, commonly used to measure the low-level similarity between the real images and generated images. To evaluate the identity preserving ability, we use cosine similarity ({{CSIM}}) used in \cite{zakharov2019few}, which computes the cosine similarity between embedding vectors of the state-of-the-art face recognition network~\cite{deng2019arcface} for measuring identity mismatch. To evaluate whether the synthesized video contains accurate lip movements that correspond to the input condition, we adopt the evaluation matrix Landmarks Distance (LMD) proposed in~\cite{chen2018lip}. Additionally, we conduct user study to investigate the visual quality of the generated videos.{\lchen{lip reading}}
+\noindent \textbf{Evaluation Metrics} \quad We use several criteria for quantitative evaluation. We use Fréchet Inception Distance (FID)~\cite{heusel2017gans}, mostly quantifying the fidelity of synthesized images, structured similarity (SSIM)~\cite{wang2004image}, commonly used to measure the low-level similarity between the real images and generated images. To evaluate the identity preserving ability, we use cosine similarity ({{CSIM}}) used in \cite{zakharov2019few}, which computes the cosine similarity between embedding vectors of the state-of-the-art face recognition network~\cite{deng2019arcface} for measuring identity mismatch. To evaluate whether the synthesized video contains accurate lip movements that correspond to the input condition, we adopt the evaluation matrix Landmarks Distance (LMD) proposed in~\cite{chen2018lip}. Additionally, we conduct user study to investigate the visual quality of the generated videos.{\lchen{lip reading}}
 
 
 % \begin{figure}
@@ -554,86 +522,14 @@ Dataset & \multicolumn{4}{c}{LRS-TED} & \multicolumn{4}{c}{VoxCeleb2}  \\
 % \end{figure}
 
 
-\noindent \textbf{Comparison with Other Methods} \quad We compared our method with two sets of state-of-the-art methods. We first compare our approach with those audio-driven generation methods: Chen et al., 2019~\cite{chen2019hierarchical}, Wiles et al., 2018~\cite{wiles2018x2face}, Chung et al., 2017~\cite{chung2017you}, and Zhou et al., 2019~\cite{zhou2019talking}, which take audio and one frame as inputs and synthesize a talking face saying the speech. We show the results in Tab.~\ref{tab:audio_tb}.
-We also compare our approach with state-of-the-art landmark-driven generation methods: Wiles et al., 2018~\cite{wiles2018x2face}, Chen et al., 2019~\cite{chen2019hierarchical}, pix2pixHD~\cite{wang2018high},  Zakharov et al., 2019\cite{zakharov2019few} on VoxCeleb2 and \lchen{other datasets} datasets. According to Tab.~\ref{tab:lmark_tb}, our approach achieves best performance in most of the evaluation matrices. It is worth to mention that our method outperforms other methods in terms of the CSIM score, which demonstrates the generalizability of our method. We choose different $K$ here to better understand our matching scheme. We can see that with larger $K$ value, the inception performance (FID and SSIM) improve dramatically. Note that we only select $K$ images from the first 64 frames, and  Zakharov et al., 2019~\cite{zakharov2019few} and  Wang et al., 2019~\cite{wang2018fewshotvid2vid} select $K$ images from the whole video sequence, which arguably gives other methods an advantage. 
+\noindent \textbf{Comparison with Audio-driven Methods.} \quad We first consider such a scenario that takes audio and one frame as inputs and synthesizes a talking face saying the speech, which has been explored in Chung et al.~\cite{chung2017you}, Wiles et al.~\cite{wiles2018x2face}, Chen et al.~\cite{chen2019hierarchical}, Song et al.~\cite{ijcai2019-129}, Vougioukas et al.~\cite{vougioukas2019realistic}, and Zhou et al.~\cite{zhou2019talking}. Comparing  with their methods, our method is able to generate vivid videos including controllable eye blinking, head movements, and natual facial expressions. Visual results Fig.XXXX . Quantitative results  ~\ref{tab:audio_tb}.
 
-To further explore the upper-bound of our approach, we also train our model in the same few-shot setting described in their papers to do the comparison.
+\noindent \textbf{Comparison with Visual-driven Methods.} \quad We also compare our approach with state-of-the-art landmark/image-driven generation methods: Zakharov et al.\cite{zakharov2019few}, Wiles et al.~\cite{wiles2018x2face}, and Wang et al.~\cite{wang2018fewshotvid2vid} on VoxCeleb2 and \lchen{other datasets} datasets. According to Tab.~\ref{tab:lmark_tb}, our approach achieves best performance in most of the evaluation matrices. It is worth to mention that our method outperforms other methods in terms of the CSIM score, which demonstrates the generalizability of our method. We choose different $K$ here to better understand our matching scheme. We can see that with larger $K$ value, the inception performance (FID and SSIM) improve dramatically. Note that we only select $K$ images from the first 64 frames, and  Zakharov et al., 2019~\cite{zakharov2019few} and  Wang et al., 2019~\cite{wang2018fewshotvid2vid} select $K$ images from the whole video sequence, which arguably gives other methods an advantage. Fig.XXXXX
 
+\noindent \textbf{Comparison With Image Editing Methods.} 
+% To further explore the upper-bound of our approach,
+To further demonstrate the ability of our approach, we compare our method Suwajanakorn et al.~\cite{suwajanakorn2017synthesizing}. XXXXX
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% \begin{table}[t]
-%     \centering
-%   \begin{tabular*}{0.45\linewidth}{  p{2.2cm} | p{0.95cm} p{0.9cm} p{0.9cm}}
-%       \toprule
-%       \toprule
-% Method & \multicolumn{2}{c}{Few-shot learning}   \\ \hline
-%       \midrule
-% & {CSIM$\uparrow$} &{SSIM$\uparrow$}&{FID$\downarrow$}  \\ \hline
-% { Wang et al., 2019-1} &       &     & 46.1 \\ \hline
-% {Our-1} & \bf{0.47}  & \bf{   }  & \bf{30.3}  \\
-%     \bottomrule
-% { Wang et al., 2019-8} &       &       & 42.2 \\ \hline
-% {Our-8} & \bf{0.58}  & \bf{0.73}   & \bf{26.5}  \\ 
-%     \bottomrule
-% { Wang et al., 2019-32} & 0.45 & 0.72 & 30.6 \\ \hline
-% {Our-32} & \bf{0.61} &\bf{ 0.72} & \bf{26.1}  \\ \hline
-%     \bottomrule
-%   \end{tabular*}
-%   \caption{Quantitative results of few-shot learning on VoxCeleb2 dataset. For fair comparison, here we remove the recurrent unit in our model. We bold each leading score.}
-%     \label{tab:few-shot_tb}
-% \end{table}
-%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% \begin{table}[ht]
-% \begin{minipage}[b]{0.45\linewidth}\centering
-% \begin{tabular}{  p{2.0cm} | p{0.95cm} p{0.8cm} p{0.9cm}}
-%       \toprule
-%       \toprule
-% Method & \multicolumn{2}{c}{Few-shot learning}   \\ \hline
-%       \midrule
-% & {CSIM$\uparrow$} &{SSIM$\uparrow$}&{FID$\downarrow$}  \\ \hline
-% { Wang et al., 2019-1} &       &     & 46.1 \\ \hline
-% {Our-1} & \bf{0.47}  & \bf{   }  & \bf{30.3}  \\
-%     \bottomrule
-% { Wang et al., 2019-8} &       &       & 42.2 \\ \hline
-% {Our-8} & \bf{0.58}  & \bf{0.73}   & \bf{26.5}  \\ 
-%     \bottomrule
-% { Wang et al., 2019-32} & 0.45 & 0.72 & 30.6 \\ \hline
-% {Our-32} & \bf{0.61} &\bf{ 0.72} & \bf{26.1}  \\ \hline
-%     \bottomrule
-%   \end{tabular}
-%   \caption{Quantitative results of few-shot learning on VoxCeleb2 dataset. For fair comparison, here we remove the recurrent unit in our model. We bold each leading score.}
-%     \label{tab:few-shot_tb}
-% \end{minipage}
-% \hspace{0.5cm}
-% \begin{minipage}[b]{0.45\linewidth}
-% \centering
-% \begin{tabular}{  p{3.2cm} | p{0.9cm} p{0.9cm} p{0.9cm}}
-%       \toprule
-%       \midrule
-% Method & {CSIM$\uparrow$} &{SSIM$\uparrow$}&{FID$\downarrow$}  \\ \hline
-% {w/o \textit{TP-GRU}-1} & \textbf{ } &  &\bf{}  \\ \hline
-% {with warping-1} &     &     &     \\ \hline
-% {w/o \textit{Motion Matcher}-1}  &     &     &     \\ \hline
-% {Our-1} & {     } & \bf{     } &  {     } \\
-%     \bottomrule
-% {w/o \textit{TP-GRU}-8} &0.32  &       & 36.6  \\ \hline
-% {with warping-8} & 0.29 & 0.62 & 37.4 \\ \hline
-% {w/o \textit{Motion Matcher}-8} &       & 0.65 & 59.4 \\ \hline
-
-% {Our-8} & \textbf{     } & \textbf{     } &  \textbf{     }\\
-%     \bottomrule
-% {w/o \textit{TP-GRU}-32} & 0.34 &\textbf{      } & 34.0 \\ \hline
-% {with warping-8} & 0.28 & 0.65 & 37.4 \\ \hline
-% {w/o \textit{Motion Matcher}-32} &  0.26&  & 52.6 \\ \hline
-
-% {Our-32} & \bf{0.40}  & {0.69} &  \textbf{28.4}   \\
-%     \bottomrule
-%   \end{tabular}
-%   \caption{Ablation studies on VoxCeleb2 dataset. Our model mentioned in this table are trained from scratch. We bold each leading score.}
-%     \label{tab:alation}
-% \end{minipage}
-% \end{table}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{table}[t]
@@ -641,8 +537,9 @@ To further explore the upper-bound of our approach, we also train our model in t
     \centering
   \begin{tabular*}{0.9\linewidth}{  p{4.2cm} | p{1.0cm} p{1.0cm} p{1.0cm} p{1.0cm} p{1.0cm} p{1.0cm} p{1.0cm}}
       \toprule
-      \midrule
-Method & {CSIM$\uparrow$} &{PSNR$\uparrow$} &{SSIM$\uparrow$}&{FID$\downarrow$} &{Human$\uparrow$}  \\ %\hline
+      \hline
+    %   \midrule
+Method & {CSIM$\uparrow$} &{PSNR$\uparrow$}  &{SSIM$\uparrow$}&{FID$\downarrow$} &{Human$\uparrow$}  \\ \hline
 {w/o head motion } & \textbf{ } &  &\bf{}  \\ %\hline
 {w/o 3D-Aware} & \textbf{ } &  &\bf{}  \\ %\hline
 {w/o Hybrid-Attention} & \textbf{ } &  &\bf{}  \\ %\hline
@@ -650,21 +547,21 @@ Method & {CSIM$\uparrow$} &{PSNR$\uparrow$} &{SSIM$\uparrow$}&{FID$\downarrow$} 
 % {w/o warping} &     &     &     \\ %\hline
 {w/o Motion Matcher}  &     &     &     \\ %\hline
 {w/o temporal smoothing}  &     &     &     \\ %\hline
-
-{with MFCC} & {     } & \bf{     } &  {     } \\ \bottomrule
+{with MFCC} & {     } & \bf{     } &  {     } \\ %\bottomrule
 {Full, K=1} & \textbf{     } & \textbf{     } &  \textbf{     }\\ %\hline
 {Full, K=8} & \textbf{     } & \textbf{     } &  \textbf{     }\\ %\hline
 {Full, K=32} & \textbf{     } & \textbf{     } &  \textbf{     }\\ %\hline
-    \bottomrule
+    % \bottomrule
   \end{tabular*}
   \caption{Ablation studies on VoxCeleb2 dataset. Our model mentioned in this table are trained from scratch. We bold each leading score.}
     \label{tab:alation}
 \end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%
-\noindent \textbf{Ablation Studies} \quad We conduct thoughtful ablation experiments to study the contributions of each module we introduced in Sec.~\ref{sec:method}. The ablation studies are conducted on VoxCeleb2 dataset. We train and test our model with different $K$ values.
-As shown in Tab.~\ref{tab:alation}, each component contributes to the full model. We can find that the \textit{Motion Matcher} is critical to our full model. We attribute it to the better ability of generating smooth transactions between adjacent frames. We also replace the dilation operation with warping to fix the $c_t$ caused by \textit{Motion Matcher} and we can find that with warping, the performance drops. We attribute it to the poor ability of optic follow on complicated dynamics in head movements (e.g., head rotation). Also, we can find that with more reference images (larger $K$ value), our model achieves better performance. We attribute it to the lower $c_t$ since we have more choices to match the target frame. 
+\noindent \textbf{Ablation Studies} \quad We conduct thoughtful ablation experiments to study the contributions of each module we introduced in Sec.~\ref{sec:method} and Sec.~\ref{sec:3dgan}. The ablation studies are conducted on VoxCeleb2 dataset.
+As shown in Tab.~\ref{tab:alation}, each component contributes to the full model. XXXXX
+%We can find that the {Motion Matcher} is critical to our full model. We attribute it to the better ability of generating smooth transactions between adjacent frames. We also replace the dilation operation with warping to fix the $c_t$ caused by {Motion Matcher} and we can find that with warping, the performance drops. We attribute it to the poor ability of optic follow on complicated dynamics in head movements (e.g., head rotation). Also, we can find that with more reference images (larger $K$ value), our model achieves better performance. We attribute it to the lower $c_t$ since we have more choices to match the target frame. 
 
-\noindent \textbf{Qualitative Results} \quad We show our qualitative comparison in Fig.~\ref{fig:compare1} with other state-of-the-art methods. We can find that our approach can generate correct head motion and facial expressions, while preserving the appearance information. We show more audio-driven video results and interesting manipulations on head motion and facial expressions in \textit{Supplementary Material}   please refer to the video and images in the \textit{Supplementary Material}.
+%\noindent \textbf{Qualitative Results} \quad We show our qualitative comparison in Fig.~\ref{fig:compare1} with other state-of-the-art methods. We can find that our approach can generate correct head motion and facial expressions, while preserving the appearance information. We show more audio-driven video results and interesting manipulations on head motion and facial expressions in \textit{Supplementary Material}   please refer to the video and images in the \textit{Supplementary Material}.
 
 \section{Conclusion and Discussion}
 In this paper, we propose a novel approach to model the head motion and facial expression explicitly, which can synthesize talking-head videos with rhythmic head motion of unseen subjects at the inference time. By leveraging the 3D manipulation, our model can generate talking-head videos with controllable head motion and facial expressions. Experimental results showed that our method performs favorably against the competing methods.
